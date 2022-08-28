@@ -634,11 +634,13 @@ dualport_mailbox_2kx16 mcu_shared_ram(
     .din_r(mcu_ram_dout),
     .dout_r(mcu_ram_din),
     .we_r(mcu_ram_we),
-    .int_r(mcu_ram_int)
+    .int_r(mcu_ram_int),
+    .valid_rom(valid_rom)
 );
 
 wire [7:0] mculatch_data = board_cfg.main_mculatch ? cpu_io_out : snd_io_data;
 wire mculatch_en = board_cfg.main_mculatch ? ( IOWR && cpu_io_addr == 8'hc0 ) : ( snd_io_req && snd_io_addr == 8'h82 );
+wire valid_rom;
 
 mcu mcu(
     .CLK_32M(CLK_32M),
@@ -664,7 +666,8 @@ mcu mcu(
     .bram_prom_cs(bram_cs[0]),
     .bram_samples_cs(bram_cs[1]),
 
-    .dbg_rom_addr(mcu_dbg_rom_addr)
+    .dbg_rom_addr(mcu_dbg_rom_addr),
+    .valid_rom(valid_rom)	 
 );
 
 wire [7:0] signed_mcu_sample = mcu_sample_data - 8'h80;

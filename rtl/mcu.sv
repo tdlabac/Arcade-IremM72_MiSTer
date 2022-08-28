@@ -46,8 +46,11 @@ module mcu(
     input bram_prom_cs,
     input bram_samples_cs,
 
-    output [15:0] dbg_rom_addr
+    output [15:0] dbg_rom_addr,
+    output reg valid_rom
 );
+
+initial valid_rom = 0;
 
 wire [6:0] ram_addr;
 wire [7:0] ram_din, ram_dout;
@@ -55,7 +58,6 @@ wire ram_we, ram_cs;
 
 wire [7:0] sample_port;
 reg valid_samples = 0;
-reg valid_rom = 0;
 always @(posedge clk_bram) if (bram_samples_cs & bram_wr) valid_samples <= 1;
 always @(posedge clk_bram) if (bram_prom_cs & bram_wr) valid_rom <= 1;
 

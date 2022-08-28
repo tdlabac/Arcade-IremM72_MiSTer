@@ -40,7 +40,8 @@ module dualport_mailbox_2kx16(
     input [7:0] din_r,
     output [7:0] dout_r,
     input we_r,
-    output int_r
+    output int_r,
+    input valid_rom
 );
 
 wire [7:0] dout_0_l, dout_1_l;
@@ -78,18 +79,40 @@ always @(posedge clk_r or posedge reset) begin
 end
 
 
+wire [7:0] dbcode_l[3] = '{8'hEA, 8'h00, 8'h10};
+wire [7:0] dbcode_h[3] = '{8'h3D, 8'h00, 8'h00};
+
+reg wr_r = 1'b0;
+reg [1:0] addr_w;
+
+always @(posedge clk_l or posedge reset) begin
+	if (reset) begin
+		wr_r <= 1'b0;
+	end else if (cs_l) begin
+		if (wr_r == 1'b0 && we_l == 2'b00 && addr_l[11:1] == 'h7fd) begin
+			wr_r <= 1'b1;
+			addr_w <= 2'b00;
+		end
+		if (wr_r != 1'b0)
+			if (addr_w == 2'b10)
+				wr_r <= 1'b0;
+			else
+				addr_w <= addr_w + 1'b1;		
+	end
+end
+
 dpramv #(.widthad_a(11)) ram_0(
     .clock_a(clk_l),
     .address_a(addr_l[11:1]),
     .q_a(dout_0_l),
     .wren_a(we_l[0]),
-    .data_a(din_l[7:0]),
+    .data_a(valid_rom ? din_l[7:0] : ~din_l[7:0]),
 
     .clock_b(clk_r),
-    .address_b(addr_r[11:1]),
+    .address_b(valid_rom ? addr_r[11:1] : addr_w),
     .q_b(dout_0_r),
-    .wren_b(we_r & ~addr_r[0]),
-    .data_b(din_r)
+    .wren_b(valid_rom ? we_r & ~addr_r[0] : wr_r),
+    .data_b(valid_rom ? din_r : dbcode_l[addr_w])
 );
 
 dpramv #(.widthad_a(11)) ram_1(
@@ -97,13 +120,13 @@ dpramv #(.widthad_a(11)) ram_1(
     .address_a(addr_l[11:1]),
     .q_a(dout_1_l),
     .wren_a(we_l[1]),
-    .data_a(din_l[15:8]),
+    .data_a(valid_rom ? din_l[15:8] : ~din_l[15:8]),
 
     .clock_b(clk_r),
-    .address_b(addr_r[11:1]),
+    .address_b(valid_rom ? addr_r[11:1] : addr_w),
     .q_b(dout_1_r),
-    .wren_b(we_r & addr_r[0]),
-    .data_b(din_r)
+    .wren_b(valid_rom ? we_r & addr_r[0] : wr_r),
+    .data_b(valid_rom ? din_r : dbcode_h[addr_w])
 );
 
 endmodule
