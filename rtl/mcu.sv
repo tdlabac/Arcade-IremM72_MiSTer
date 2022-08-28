@@ -47,7 +47,9 @@ module mcu(
     input bram_samples_cs,
 
     output [15:0] dbg_rom_addr,
-    output reg valid_rom
+    output reg valid_rom,
+    input SND2,
+    input [7:0] IO_IN
 );
 
 initial valid_rom = 0;
@@ -57,6 +59,7 @@ wire [7:0] ram_din, ram_dout;
 wire ram_we, ram_cs;
 
 wire [7:0] sample_port;
+reg [7:0] bypass_sample_data;
 reg valid_samples = 0;
 always @(posedge clk_bram) if (bram_samples_cs & bram_wr) valid_samples <= 1;
 always @(posedge clk_bram) if (bram_prom_cs & bram_wr) valid_rom <= 1;
@@ -64,7 +67,29 @@ always @(posedge clk_bram) if (bram_prom_cs & bram_wr) valid_rom <= 1;
 reg [2:0] delayed_ce_count = 0;
 wire delayed_ce = ce_8m & ~|delayed_ce_count;
 
-assign sample_data = valid_samples ? sample_port : 8'h80;
+assign sample_data = valid_samples ? (valid_rom ? sample_port : bypass_sample_data ): 8'h80;
+
+reg [17:0] bypass_sample_addr = 18'b0;
+wire [17:0] sample_start[28] = '{
+		18'h00000, 18'h00020, 18'h01800, 18'h02da0, 18'h03be0, 18'h05ae0, 18'h06100, 18'h06de0,
+		18'h07260, 18'h07a60, 18'h08720, 18'h0a5c0, 18'h0c3c0, 18'h0c7a0, 18'h0e140, 18'h0fb00,
+		18'h10fa0, 18'h10fc0, 18'h10fe0, 18'h11f40, 18'h12b20, 18'h130a0, 18'h13c60, 18'h14740,
+		18'h153c0, 18'h197e0, 18'h1af40, 18'h1c080
+		};
+
+always @(posedge CLK_32M) begin
+reg [9:0] div = 0;
+	if (SND2) begin
+		bypass_sample_addr = sample_start[IO_IN];
+		div = 10'd0;
+	end
+	if (ce_8m && div == 0) begin
+			bypass_sample_data <= sample_data_dout;
+			bypass_sample_addr <= bypass_sample_addr + 18'd1;
+	end
+	if (ce_8m && bypass_sample_data != 0)
+		div <= div + 10'd1;
+end
 
 dpramv_cen #(.widthad_a(7)) internal_ram
 (
@@ -106,7 +131,7 @@ dpramv_cen #(.widthad_a(13)) prom
 dpramv #(.widthad_a(18)) sample_rom
 (
     .clock_a(CLK_32M),
-    .address_a(sample_addr),
+    .address_a(valid_rom ? sample_addr : bypass_sample_addr),
     .q_a(sample_data_dout),
     .wren_a(1'b0),
     .data_a(),

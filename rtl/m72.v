@@ -667,7 +667,9 @@ mcu mcu(
     .bram_samples_cs(bram_cs[1]),
 
     .dbg_rom_addr(mcu_dbg_rom_addr),
-    .valid_rom(valid_rom)	 
+    .valid_rom(valid_rom),
+    .SND2(SND2),
+    .IO_IN(cpu_io_out)	 
 );
 
 wire [7:0] signed_mcu_sample = mcu_sample_data - 8'h80;
